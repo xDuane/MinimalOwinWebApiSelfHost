@@ -13,15 +13,29 @@ namespace MinimalOwinWebApiSelfHost
 {
     class Program
     {
+        static string baseUri = "http://localhost:8080";
         static void Main(string[] args)
         {
-            // Specify the URI to use for the local host:
-            string baseUri = "http://localhost:8080";
-
-            Console.WriteLine("Starting web Server...");
-            WebApp.Start<Startup>(baseUri);
-            Console.WriteLine("Server running at {0} - press Enter to quit. ", baseUri);
-            Console.ReadLine();
+            if (args.Contains("-url"))
+            {
+                baseUri = GetUrl(args);
+            }
+            using (WebApp.Start(baseUri))
+            {
+                Console.WriteLine("Server running on {0}", baseUri);
+                Console.ReadLine();
+            }
+        }
+        private static string GetUrl(string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "-url" && args.Length > i + 1)
+                {
+                    return args[i + 1];
+                }
+            }
+            return baseUri;
         }
     }
 }

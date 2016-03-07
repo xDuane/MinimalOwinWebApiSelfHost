@@ -2,12 +2,16 @@
 
 // Add the following usings:
 using Owin;
+using System.Web;
 using System.Web.Http;
 using MinimalOwinWebApiSelfHost.Models;
 using MinimalOwinWebApiSelfHost.OAuthServerProvider;
 using Microsoft.Owin.Security.OAuth;
 using Microsoft.Owin;
+using Microsoft.Owin.FileSystems;
+using Microsoft.Owin.StaticFiles;
 
+using System.Runtime.Caching;
 
 namespace MinimalOwinWebApiSelfHost
 {
@@ -16,12 +20,29 @@ namespace MinimalOwinWebApiSelfHost
         // This method is required by Katana:
         public void Configuration(IAppBuilder app)
         {
+            var cache = MemoryCache.Default;
+            //TODO: Config
+            cache["_cacheDays"] = 30;
+
             ConfigureAuth(app);
 
             var webApiConfiguration = ConfigureWebApi();
             app.UseWebApi(webApiConfiguration);
-        }
 
+            app.MapSignalR();
+
+            var physicalFileSystem = new PhysicalFileSystem(@".\Web");
+            var options = new FileServerOptions
+            {
+                EnableDefaultFiles = true,
+                FileSystem = physicalFileSystem
+            };
+            options.StaticFileOptions.FileSystem = physicalFileSystem;
+            options.StaticFileOptions.ServeUnknownFileTypes = true;
+            options.DefaultFilesOptions.DefaultFileNames = new[] { "home.html" };
+            app.UseFileServer(options);
+
+        }
 
         private void ConfigureAuth(IAppBuilder app)
         {
@@ -37,15 +58,15 @@ namespace MinimalOwinWebApiSelfHost
             app.UseOAuthAuthorizationServer(OAuthOptions);
             app.UseOAuthBearerAuthentication(new OAuthBearerAuthenticationOptions());
         }
-
-
+        
         private HttpConfiguration ConfigureWebApi()
         {
             var config = new HttpConfiguration();
             config.Routes.MapHttpRoute(
                 "DefaultApi",
-                "api/{controller}/{id}",
-                new { id = RouteParameter.Optional });
+                "api/{controller}/{action}/{zip}", null
+                //new { id = RouteParameter.Optional }
+                );
             return config;
         }
     }

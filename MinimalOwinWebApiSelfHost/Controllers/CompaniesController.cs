@@ -7,23 +7,49 @@ using System.Web.Http;
 using System.Net.Http;
 using MinimalOwinWebApiSelfHost.Models;
 
+using Microsoft.Office.Interop.Excel;
+
 // Add these usings:
 using System.Data.Entity;
+using System.Reflection;
+
+using System.Runtime.Caching;
 
 namespace MinimalOwinWebApiSelfHost.Controllers
 {
-    [Authorize(Roles="Admin")]
+    //[Authorize(Roles = "Admin")]
     public class CompaniesController : ApiController
     {
         ApplicationDbContext dbContext = new ApplicationDbContext();
+        private DateTime _cacheTime = DateTime.Today;
+        private int _cacheDays = 1;
 
-        public IEnumerable<Company> Get()
+        public IEnumerable<Company> GetList(string zip)
         {
-            return dbContext.Companies;
+            var cache = MemoryCache.Default;
+            var _companies = cache["_companies"] as IEnumerable<Company>;
+            var _cacheTime = cache["_cacheTime"] as DateTime?;
+            var _cacheDays = cache["_cacheDays"] as int?;
+
+            if (_companies == null || _cacheTime == null || _cacheDays == null || _cacheTime < DateTime.Now.AddDays(-_cacheDays.Value))
+            {
+                _companies = RDS.Classes.FileProcess.loadFile();
+            }
+
+            return _companies.Where(z => z.zip == zip).ToList();
         }
 
+        public string[] GetRange(string range, Worksheet excelWorksheet)
+        {
+            var workingRangeCells = excelWorksheet.get_Range(range, Type.Missing);
 
-        public async Task<Company> Get(int id)
+            var array = (System.Array)workingRangeCells.Cells.Value2;
+            string[] arrayS = array.OfType<object>().Select(o => o.ToString()).ToArray(); ; // this.ConvertToStringArray(array);
+
+            return arrayS;
+        }
+
+        public async Task<Company> Get(int id = -1)
         {
             var company = await dbContext.Companies.FirstOrDefaultAsync(c => c.Id == id);
             if (company == null)
@@ -33,7 +59,6 @@ namespace MinimalOwinWebApiSelfHost.Controllers
             }
             return company;
         }
-
 
         public async Task<IHttpActionResult> Post(Company company)
         {
@@ -53,7 +78,6 @@ namespace MinimalOwinWebApiSelfHost.Controllers
             return Ok();
         }
 
-
         public async Task<IHttpActionResult> Put(Company company)
         {
             if (company == null)
@@ -71,7 +95,6 @@ namespace MinimalOwinWebApiSelfHost.Controllers
             await dbContext.SaveChangesAsync();
             return Ok();
         }
-
 
         public async Task<IHttpActionResult> Delete(int id)
         {
